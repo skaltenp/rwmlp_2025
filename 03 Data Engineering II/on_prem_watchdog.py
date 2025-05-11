@@ -65,13 +65,17 @@ class OverrideHandler(FileSystemEventHandler):
         
         engine = create_engine(self.URL)
         with engine.begin() as connection:
-            weather_data_old = pd.read_sql_table("weather_data", con=connection)
-            weather_data = pd.concat([weather_data_old, weather_data]).drop_duplicates(subset=["timestamp", "site_id", "air_temperature", "cloud_coverage", "dew_temperature", "precip_depth_1_hr", "sea_level_pressure", "wind_direction", "wind_speed"], keep=False)
-            meter_data_old = pd.read_sql_table("meter_data", con=connection)
-            meter_data = pd.concat([meter_data_old, meter_data]).drop_duplicates(subset=["timestamp", "site_id", "building_id", "meter", "meter_reading"], keep=False)
-            meter_data = meter_data.drop(columns=["site_id"], axis=1)
             weather_data.to_sql(name="weather_data", con=connection, if_exists='append', index=False)
-            meter_data.to_sql(name="meter_data", con=connection, if_exists='append', index=False)
+            meter_data_old = pd.read_sql_table("meter_data", con=connection)
+            meter_data_old = meter_data_old.sort_values(by=["timestamp"]).drop_duplicates(subset=["site_id", "building_id"], keep="last")
+            site_id = meter_data.site_id.unique()[0]
+            building_id = meter_data.building_id.unique()[0]
+            timestamp = meter_data_old.timestamp.max()
+            meter_data[
+                (meter_data["site_id"] == site_id) &
+                (meter_data["building_id"] == building_id) &
+                (meter_data["timestamp"] > timestamp)
+            ].to_sql(name="meter_data", con=connection, if_exists='append', index=False)
 
     def __init__(self):
         super(OverrideHandler, self).__init__()
