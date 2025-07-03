@@ -1,0 +1,45 @@
+import io
+import os
+import json
+from pickle import load
+
+from PIL import Image
+import requests
+
+from gradio import ChatMessage
+import gradio as gr
+
+# every Gradio app needs a function that will be called when the user interacts with the interface
+# in this case, we will classify an image using a FastAPI endpoint
+
+# the function to run, when the user submits an image for classification and clicks the submit button
+def classify(api_key: str, api_secret: str, image: Image.Image) -> str:
+    b = io.BytesIO()
+    image.save(b, image.format if image.format else "JPEG")
+    img_bytes = b.getvalue()
+    res = requests.post(
+        "http://localhost:8000/img_classification",
+        files={
+            "upload_file": ("image.jpg", img_bytes, "image/jpeg"),
+        },
+        data={
+            "api_key": "",
+            "api_secret": "",
+        },
+    )
+    result = res.json().get("result", "No classification result found.")
+    return result
+
+# the amazing Gradio interface
+# it will be launched when you run this script
+# it allows you to really easily implement a web interface for your function
+gr.Interface(
+    fn=classify,
+    inputs=[
+        gr.Textbox(label="API Key", placeholder="Enter your API key here"),
+        gr.Textbox(label="API Secret", placeholder="Enter your API secret here"),
+        gr.Image(type="pil")
+    ],
+    outputs=gr.Textbox(label="Classification Result"),
+    examples=[["str", "str", "test_images/dog.jpg"], ["str", "str", "test_images/cat.jpeg"], ["str", "str", "test_images/muffin.jpg"],]
+).launch()
